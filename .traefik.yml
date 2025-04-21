@@ -1,0 +1,10 @@
+displayName: UniFi DNS
+type: middleware
+import: github.com/horknfbr/trafik-unifidns
+summary: Automatically updates DNS records on UniFi Dream Machine Pro based on Traefik routers
+testData:
+  udmProHost: "192.168.1.1"
+  udmProUsername: "admin"
+  udmProPassword: "password"
+  updateInterval: "5m"
+  traefikApiUrl: "http://localhost:8080"
