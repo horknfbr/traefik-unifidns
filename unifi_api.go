@@ -1,4 +1,4 @@
-package trafikunifidns
+package traefikunifidns
 
 import (
 	"bytes"
