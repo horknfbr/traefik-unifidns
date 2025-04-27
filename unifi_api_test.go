@@ -47,7 +47,9 @@ func TestUniFiClientLogin(t *testing.T) {
 
 		// Return a token
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"token": "test-token"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"token": "test-token"}); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 

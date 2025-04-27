@@ -35,7 +35,9 @@ func TestTraefikClientGetRouters(t *testing.T) {
 			{Rule: "Host(\"domain.com\")"},
 			{Rule: "PathPrefix(`/api`)"}, // No host rule
 		}
-		json.NewEncoder(w).Encode(routers)
+		if err := json.NewEncoder(w).Encode(routers); err != nil {
+			t.Fatalf("Failed to encode routers: %v", err)
+		}
 	}))
 	defer server.Close()
 

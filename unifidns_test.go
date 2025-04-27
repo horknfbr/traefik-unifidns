@@ -89,7 +89,9 @@ func TestServeHTTP(t *testing.T) {
 
 	handler, err := New(context.Background(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		if _, err := w.Write([]byte("test response")); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}), config, "test")
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
@@ -138,7 +140,9 @@ func TestUpdateDNS(t *testing.T) {
 			{Rule: "Host('other.domain.com')"},
 			{Rule: "PathPrefix(`/api`)"}, // No host rule
 		}
-		json.NewEncoder(w).Encode(routers)
+		if err := json.NewEncoder(w).Encode(routers); err != nil {
+			t.Fatalf("Failed to encode routers: %v", err)
+		}
 	}))
 	defer traefikServer.Close()
 
@@ -148,8 +152,9 @@ func TestUpdateDNS(t *testing.T) {
 			t.Errorf("Expected POST request, got %s", r.Method)
 		}
 
-		// Check authorization header for DNS update
-		if r.URL.Path == "/api/s/default/rest/dnsrecord" {
+		switch r.URL.Path {
+		case "/api/s/default/rest/dnsrecord":
+			// Check authorization header for DNS update
 			auth := r.Header.Get("Authorization")
 			if auth != "Bearer test-token" {
 				t.Errorf("Expected Authorization 'Bearer test-token', got '%s'", auth)
@@ -169,10 +174,12 @@ func TestUpdateDNS(t *testing.T) {
 
 			// Return success
 			w.WriteHeader(http.StatusOK)
-		} else if r.URL.Path == "/api/auth/login" {
+		case "/api/auth/login":
 			// Return a token for login
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{"token": "test-token"})
+			if err := json.NewEncoder(w).Encode(map[string]string{"token": "test-token"}); err != nil {
+				t.Fatalf("Failed to encode token response: %v", err)
+			}
 		}
 	}))
 	defer unifiServer.Close()
@@ -182,8 +189,9 @@ func TestUpdateDNS(t *testing.T) {
 			t.Errorf("Expected POST request, got %s", r.Method)
 		}
 
-		// Check authorization header for DNS update
-		if r.URL.Path == "/api/s/default/rest/dnsrecord" {
+		switch r.URL.Path {
+		case "/api/s/default/rest/dnsrecord":
+			// Check authorization header for DNS update
 			auth := r.Header.Get("Authorization")
 			if auth != "Bearer test-token" {
 				t.Errorf("Expected Authorization 'Bearer test-token', got '%s'", auth)
@@ -191,10 +199,12 @@ func TestUpdateDNS(t *testing.T) {
 
 			// Return success
 			w.WriteHeader(http.StatusOK)
-		} else if r.URL.Path == "/api/auth/login" {
+		case "/api/auth/login":
 			// Return a token for login
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{"token": "test-token"})
+			if err := json.NewEncoder(w).Encode(map[string]string{"token": "test-token"}); err != nil {
+				t.Fatalf("Failed to encode token response: %v", err)
+			}
 		}
 	}))
 	defer unifiServer2.Close()
