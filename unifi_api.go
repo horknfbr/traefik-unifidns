@@ -55,7 +55,14 @@ func (c *UniFiClient) login() error {
 	if err != nil {
 		return fmt.Errorf("failed to send login request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// If we already have an error, don't override it
+			if err == nil {
+				err = fmt.Errorf("failed to close response body: %w", closeErr)
+			}
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("login failed with status: %d", resp.StatusCode)
@@ -106,7 +113,14 @@ func (c *UniFiClient) updateDNSRecord(hostname, ip string) error {
 	if err != nil {
 		return fmt.Errorf("failed to send DNS update request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// If we already have an error, don't override it
+			if err == nil {
+				err = fmt.Errorf("failed to close response body: %w", closeErr)
+			}
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("DNS update failed with status: %d", resp.StatusCode)

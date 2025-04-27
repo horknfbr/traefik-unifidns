@@ -31,7 +31,14 @@ func (c *TraefikClient) GetRouters() ([]TraefikRouter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get routers: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// If we already have an error, don't override it
+			if err == nil {
+				err = fmt.Errorf("failed to close response body: %w", closeErr)
+			}
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get routers: status code %d", resp.StatusCode)
