@@ -18,7 +18,7 @@ This Traefik plugin automatically updates DNS records on UniFi devices based on 
 experimental:
   plugins:
     unifidns:
-      moduleName: github.com/scottmacdonald/trafik-unifidns
+      moduleName: github.com/horknfbr/trafik-unifidns
 ```
 
 ### Dynamic Configuration
@@ -88,4 +88,4 @@ http:
 
 ## License
 
-MIT License
+[MIT License](LICENSE)
