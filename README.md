@@ -1,5 +1,9 @@
 # Traefik UniFi DNS Plugin
 
+[![CI](https://github.com/horknfbr/trafik-unifidns/actions/workflows/testcover.yml/badge.svg)](https://github.com/horknfbr/trafik-unifidns/actions/workflows/testcover.yml) [![Go Linter](https://github.com/horknfbr/trafik-unifidns/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/horknfbr/trafik-unifidns/actions/workflows/golangci-lint.yml)
+
+![Traefik UniFi DNS Plugin](/.assets/icon.png)
+
 This Traefik plugin automatically updates DNS records on UniFi devices based on the routers configured in Traefik and domain name patterns.
 
 ## Features
