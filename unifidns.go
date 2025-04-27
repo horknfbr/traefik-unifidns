@@ -5,17 +5,24 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"sync"
 	"time"
 )
 
+// UnifiDeviceConfig represents configuration for a single UniFi device
+type UnifiDeviceConfig struct {
+	Host     string `json:"host"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Pattern  string `json:"pattern"` // Regex pattern to match domain names
+}
+
 // Config the plugin configuration.
 type Config struct {
-	UDMProHost     string `json:"udmProHost"`
-	UDMProUsername string `json:"udmProUsername"`
-	UDMProPassword string `json:"udmProPassword"`
-	UpdateInterval string `json:"updateInterval,omitempty"`
-	TraefikAPIURL  string `json:"traefikApiUrl"`
+	Devices        []UnifiDeviceConfig `json:"devices"`
+	UpdateInterval string              `json:"updateInterval,omitempty"`
+	TraefikAPIURL  string              `json:"traefikApiUrl"`
 }
 
 // CreateConfig creates the default plugin configuration.
@@ -23,6 +30,7 @@ func CreateConfig() *Config {
 	return &Config{
 		UpdateInterval: "5m",
 		TraefikAPIURL:  "http://localhost:8080",
+		Devices:        []UnifiDeviceConfig{},
 	}
 }
 
@@ -31,7 +39,8 @@ type UniFiDNS struct {
 	next           http.Handler
 	name           string
 	config         *Config
-	unifiClient    *UniFiClient
+	unifiClients   map[string]*UniFiClient
+	devicePatterns map[string]*regexp.Regexp
 	traefikClient  *TraefikClient
 	updateInterval time.Duration
 	mu             sync.RWMutex
@@ -45,11 +54,34 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 		return nil, fmt.Errorf("invalid update interval: %w", err)
 	}
 
+	// Initialize UnifiClients and compile patterns
+	unifiClients := make(map[string]*UniFiClient)
+	devicePatterns := make(map[string]*regexp.Regexp)
+
+	for i, device := range config.Devices {
+		if device.Pattern == "" {
+			return nil, fmt.Errorf("device %d is missing a pattern", i)
+		}
+
+		// Compile the regex pattern
+		re, err := regexp.Compile(device.Pattern)
+		if err != nil {
+			return nil, fmt.Errorf("invalid pattern for device %d: %w", i, err)
+		}
+
+		// Create a client for this device
+		client := NewUniFiClient(device.Host, device.Username, device.Password)
+		clientID := fmt.Sprintf("device-%d", i)
+		unifiClients[clientID] = client
+		devicePatterns[clientID] = re
+	}
+
 	u := &UniFiDNS{
 		next:           next,
 		name:           name,
 		config:         config,
-		unifiClient:    NewUniFiClient(config.UDMProHost, config.UDMProUsername, config.UDMProPassword),
+		unifiClients:   unifiClients,
+		devicePatterns: devicePatterns,
 		traefikClient:  NewTraefikClient(config.TraefikAPIURL),
 		updateInterval: interval,
 	}
@@ -80,6 +112,16 @@ func (u *UniFiDNS) updateLoop(ctx context.Context) {
 	}
 }
 
+// findMatchingClient returns the unifi client that matches the given hostname
+func (u *UniFiDNS) findMatchingClient(hostname string) (*UniFiClient, bool) {
+	for clientID, pattern := range u.devicePatterns {
+		if pattern.MatchString(hostname) {
+			return u.unifiClients[clientID], true
+		}
+	}
+	return nil, false
+}
+
 func (u *UniFiDNS) updateDNS() error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
@@ -108,8 +150,15 @@ func (u *UniFiDNS) updateDNS() error {
 			continue
 		}
 
+		// Find the matching UniFi client for this hostname
+		client, found := u.findMatchingClient(hostname)
+		if !found {
+			fmt.Printf("No matching UniFi device found for hostname: %s\n", hostname)
+			continue
+		}
+
 		// Update DNS record
-		if err := u.unifiClient.updateDNSRecord(hostname, localIP); err != nil {
+		if err := client.updateDNSRecord(hostname, localIP); err != nil {
 			fmt.Printf("Failed to update DNS record for %s: %v\n", hostname, err)
 			continue
 		}

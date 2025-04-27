@@ -13,36 +13,34 @@ type TraefikRouter struct {
 }
 
 type TraefikClient struct {
-	client *http.Client
-	apiURL string
+	client  *http.Client
+	baseURL string
 }
 
 func NewTraefikClient(apiURL string) *TraefikClient {
 	return &TraefikClient{
-		client: &http.Client{Timeout: 10 * time.Second},
-		apiURL: apiURL,
+		client:  &http.Client{Timeout: 10 * time.Second},
+		baseURL: apiURL,
 	}
 }
 
 func (c *TraefikClient) GetRouters() ([]TraefikRouter, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/http/routers", c.apiURL), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	resp, err := c.client.Do(req)
+	// Get router configurations from the Traefik API using direct HTTP
+	url := fmt.Sprintf("%s/api/http/routers", c.baseURL)
+	resp, err := c.client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get routers: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get routers: status %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to get routers: status code %d", resp.StatusCode)
 	}
 
+	// Decode router information from JSON response
 	var routers []TraefikRouter
 	if err := json.NewDecoder(resp.Body).Decode(&routers); err != nil {
-		return nil, fmt.Errorf("failed to decode routers: %w", err)
+		return nil, fmt.Errorf("failed to decode router response: %w", err)
 	}
 
 	return routers, nil

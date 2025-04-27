@@ -12,8 +12,8 @@ func TestNewTraefikClient(t *testing.T) {
 	if client == nil {
 		t.Fatal("NewTraefikClient returned nil")
 	}
-	if client.apiURL != "http://localhost:8080" {
-		t.Errorf("Expected apiURL to be 'http://localhost:8080', got '%s'", client.apiURL)
+	if client.baseURL != "http://localhost:8080" {
+		t.Errorf("Expected baseURL to be 'http://localhost:8080', got '%s'", client.baseURL)
 	}
 }
 
@@ -41,8 +41,8 @@ func TestTraefikClientGetRouters(t *testing.T) {
 
 	// Create client with test server URL
 	client := &TraefikClient{
-		client: &http.Client{},
-		apiURL: server.URL,
+		client:  &http.Client{},
+		baseURL: server.URL,
 	}
 
 	// Test GetRouters

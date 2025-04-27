@@ -3,9 +3,11 @@ package trafikunifidns
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -21,13 +23,21 @@ func TestCreateConfig(t *testing.T) {
 	if config.TraefikAPIURL != "http://localhost:8080" {
 		t.Errorf("Expected TraefikAPIURL to be 'http://localhost:8080', got '%s'", config.TraefikAPIURL)
 	}
+	if len(config.Devices) != 0 {
+		t.Errorf("Expected empty devices array, got %d devices", len(config.Devices))
+	}
 }
 
 func TestNew(t *testing.T) {
 	config := &Config{
-		UDMProHost:     "192.168.1.1",
-		UDMProUsername: "admin",
-		UDMProPassword: "password",
+		Devices: []UnifiDeviceConfig{
+			{
+				Host:     "192.168.1.1",
+				Username: "admin",
+				Password: "password",
+				Pattern:  ".*\\.example\\.com",
+			},
+		},
 		UpdateInterval: "1s",
 		TraefikAPIURL:  "http://localhost:8080",
 	}
@@ -46,13 +56,33 @@ func TestNew(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error for invalid interval, got nil")
 	}
+
+	// Test with invalid regex pattern
+	config.UpdateInterval = "1s"
+	config.Devices[0].Pattern = "[" // Invalid regex
+	_, err = New(context.Background(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), config, "test")
+	if err == nil {
+		t.Fatal("Expected error for invalid pattern, got nil")
+	}
+
+	// Test with empty pattern
+	config.Devices[0].Pattern = ""
+	_, err = New(context.Background(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), config, "test")
+	if err == nil {
+		t.Fatal("Expected error for empty pattern, got nil")
+	}
 }
 
 func TestServeHTTP(t *testing.T) {
 	config := &Config{
-		UDMProHost:     "192.168.1.1",
-		UDMProUsername: "admin",
-		UDMProPassword: "password",
+		Devices: []UnifiDeviceConfig{
+			{
+				Host:     "192.168.1.1",
+				Username: "admin",
+				Password: "password",
+				Pattern:  ".*\\.example\\.com",
+			},
+		},
 		UpdateInterval: "1s",
 		TraefikAPIURL:  "http://localhost:8080",
 	}
@@ -104,8 +134,8 @@ func TestUpdateDNS(t *testing.T) {
 		// Return test routers
 		w.Header().Set("Content-Type", "application/json")
 		routers := []TraefikRouter{
-			{Rule: "Host(`example.com`)"},
-			{Rule: "Host('test.com')"},
+			{Rule: "Host(`test.example.com`)"},
+			{Rule: "Host('other.domain.com')"},
 			{Rule: "PathPrefix(`/api`)"}, // No host rule
 		}
 		json.NewEncoder(w).Encode(routers)
@@ -147,20 +177,66 @@ func TestUpdateDNS(t *testing.T) {
 	}))
 	defer unifiServer.Close()
 
+	unifiServer2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("Expected POST request, got %s", r.Method)
+		}
+
+		// Check authorization header for DNS update
+		if r.URL.Path == "/api/s/default/rest/dnsrecord" {
+			auth := r.Header.Get("Authorization")
+			if auth != "Bearer test-token" {
+				t.Errorf("Expected Authorization 'Bearer test-token', got '%s'", auth)
+			}
+
+			// Return success
+			w.WriteHeader(http.StatusOK)
+		} else if r.URL.Path == "/api/auth/login" {
+			// Return a token for login
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"token": "test-token"})
+		}
+	}))
+	defer unifiServer2.Close()
+
 	// Create a plugin instance with test servers
 	config := &Config{
-		UDMProHost:     unifiServer.Listener.Addr().String(),
-		UDMProUsername: "admin",
-		UDMProPassword: "password",
+		Devices: []UnifiDeviceConfig{
+			{
+				Host:     unifiServer.Listener.Addr().String(),
+				Username: "admin",
+				Password: "password",
+				Pattern:  ".*\\.example\\.com",
+			},
+			{
+				Host:     unifiServer2.Listener.Addr().String(),
+				Username: "admin",
+				Password: "password",
+				Pattern:  ".*\\.domain\\.com",
+			},
+		},
 		UpdateInterval: "1s",
 		TraefikAPIURL:  traefikServer.URL,
+	}
+
+	// Create unifi clients
+	unifiClients := make(map[string]*UniFiClient)
+	devicePatterns := make(map[string]*regexp.Regexp)
+
+	for i, device := range config.Devices {
+		client := NewUniFiClient(device.Host, device.Username, device.Password)
+		clientID := fmt.Sprintf("device-%d", i)
+		unifiClients[clientID] = client
+		pattern, _ := regexp.Compile(device.Pattern)
+		devicePatterns[clientID] = pattern
 	}
 
 	plugin := &UniFiDNS{
 		next:           http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
 		name:           "test",
 		config:         config,
-		unifiClient:    NewUniFiClient(config.UDMProHost, config.UDMProUsername, config.UDMProPassword),
+		unifiClients:   unifiClients,
+		devicePatterns: devicePatterns,
 		traefikClient:  NewTraefikClient(config.TraefikAPIURL),
 		updateInterval: time.Second,
 	}
@@ -169,5 +245,76 @@ func TestUpdateDNS(t *testing.T) {
 	err := plugin.updateDNS()
 	if err != nil {
 		t.Fatalf("updateDNS returned error: %v", err)
+	}
+}
+
+func TestFindMatchingClient(t *testing.T) {
+	config := &Config{
+		Devices: []UnifiDeviceConfig{
+			{
+				Host:     "192.168.1.1",
+				Username: "admin1",
+				Password: "pass1",
+				Pattern:  ".*\\.example\\.com",
+			},
+			{
+				Host:     "192.168.1.2",
+				Username: "admin2",
+				Password: "pass2",
+				Pattern:  ".*\\.domain\\.com",
+			},
+		},
+	}
+
+	// Create unifi clients
+	unifiClients := make(map[string]*UniFiClient)
+	devicePatterns := make(map[string]*regexp.Regexp)
+
+	for i, device := range config.Devices {
+		client := NewUniFiClient(device.Host, device.Username, device.Password)
+		clientID := fmt.Sprintf("device-%d", i)
+		unifiClients[clientID] = client
+		pattern, _ := regexp.Compile(device.Pattern)
+		devicePatterns[clientID] = pattern
+	}
+
+	plugin := &UniFiDNS{
+		config:         config,
+		unifiClients:   unifiClients,
+		devicePatterns: devicePatterns,
+	}
+
+	// Test matching
+	tests := []struct {
+		hostname   string
+		shouldFind bool
+		clientHost string
+	}{
+		{
+			hostname:   "test.example.com",
+			shouldFind: true,
+			clientHost: "192.168.1.1",
+		},
+		{
+			hostname:   "sub.domain.com",
+			shouldFind: true,
+			clientHost: "192.168.1.2",
+		},
+		{
+			hostname:   "another.site.org",
+			shouldFind: false,
+			clientHost: "",
+		},
+	}
+
+	for _, tt := range tests {
+		client, found := plugin.findMatchingClient(tt.hostname)
+		if found != tt.shouldFind {
+			t.Errorf("findMatchingClient(%q): got found=%v, want %v", tt.hostname, found, tt.shouldFind)
+		}
+		if found && client.baseURL != "https://"+tt.clientHost {
+			t.Errorf("findMatchingClient(%q): got client with host %q, want %q",
+				tt.hostname, client.baseURL, "https://"+tt.clientHost)
+		}
 	}
 }

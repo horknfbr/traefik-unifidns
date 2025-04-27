@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"path"
+	"strings"
 	"time"
 )
 
@@ -19,20 +18,21 @@ type UniFiClient struct {
 }
 
 func NewUniFiClient(host, username, password string) *UniFiClient {
+	// Ensure host doesn't already include a protocol
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		host = fmt.Sprintf("https://%s", host)
+	}
+
 	return &UniFiClient{
 		client:   &http.Client{Timeout: 10 * time.Second},
-		baseURL:  fmt.Sprintf("https://%s", host),
+		baseURL:  host,
 		username: username,
 		password: password,
 	}
 }
 
 func (c *UniFiClient) login() error {
-	loginURL := url.URL{
-		Scheme: "https",
-		Host:   c.baseURL,
-		Path:   "/api/auth/login",
-	}
+	loginURL := fmt.Sprintf("%s/api/auth/login", c.baseURL)
 
 	payload := map[string]string{
 		"username": c.username,
@@ -44,7 +44,7 @@ func (c *UniFiClient) login() error {
 		return fmt.Errorf("failed to marshal login payload: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", loginURL.String(), bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", loginURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create login request: %w", err)
 	}
@@ -80,11 +80,7 @@ func (c *UniFiClient) updateDNSRecord(hostname, ip string) error {
 		}
 	}
 
-	updateURL := url.URL{
-		Scheme: "https",
-		Host:   c.baseURL,
-		Path:   path.Join("/api/s/default/rest/dnsrecord"),
-	}
+	updateURL := fmt.Sprintf("%s/api/s/default/rest/dnsrecord", c.baseURL)
 
 	payload := map[string]interface{}{
 		"name":    hostname,
@@ -98,7 +94,7 @@ func (c *UniFiClient) updateDNSRecord(hostname, ip string) error {
 		return fmt.Errorf("failed to marshal DNS update payload: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", updateURL.String(), bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", updateURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create DNS update request: %w", err)
 	}
