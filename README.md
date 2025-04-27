@@ -22,7 +22,7 @@ This Traefik plugin automatically updates DNS records on UniFi devices based on 
 experimental:
   plugins:
     unifidns:
-      moduleName: github.com/horknfbr/trafik-unifidns
+      moduleName: github.com/horknfbr/traefik-unifidns
 ```
 
 ### Dynamic Configuration
@@ -52,7 +52,7 @@ http:
   - `host`: The hostname or IP address of your UniFi device
   - `username`: Username for UniFi authentication
   - `password`: Password for UniFi authentication
-  - `pattern`: Regular expression to match hostnames to this device (e.g., ".*\\.example\\.com")
+  - `pattern`: Regular expression to match hostnames to this device (e.g., ".\*\\.example\\.com")
 - `updateInterval`: How often to check for and update DNS records (default: "5m")
 - `traefikApiUrl`: URL of the Traefik API (default: `http://localhost:8080`)
 
