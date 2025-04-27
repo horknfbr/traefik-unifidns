@@ -1,6 +1,6 @@
 # Traefik UniFi DNS Plugin
 
-[![CI](/actions/workflows/testcover.yml/badge.svg)](/actions/workflows/testcover.yml) [![Go Linter](/actions/workflows/golangci-lint.yml/badge.svg)](/actions/workflows/golangci-lint.yml)
+[![CI](https://github.com/horknfbr/trafik-unifidns/actions/workflows/testcover.yml/badge.svg)](https://github.com/horknfbr/trafik-unifidns/actions/workflows/testcover.yml) [![Go Linter](https://github.com/horknfbr/trafik-unifidns/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/horknfbr/trafik-unifidns/actions/workflows/golangci-lint.yml)
 
 ![Traefik UniFi DNS Plugin](/.assets/icon.png)
 
