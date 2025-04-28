@@ -57,6 +57,64 @@ func TestTraefikClientGetRouters(t *testing.T) {
 	}
 }
 
+func TestTraefikClientGetRoutersWithErrors(t *testing.T) {
+	// Test case 1: Error on HTTP request
+	t.Run("HTTP request error", func(t *testing.T) {
+		// Create a client with an invalid URL to force a request error
+		client := &TraefikClient{
+			client:  &http.Client{},
+			baseURL: "http://invalid-url-that-will-fail:12345",
+		}
+
+		// Test GetRouters with an invalid URL
+		_, err := client.GetRouters()
+		if err == nil {
+			t.Error("Expected error for invalid URL, got nil")
+		}
+	})
+
+	// Test case 2: Non-200 status code
+	t.Run("Non-200 status code", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		client := &TraefikClient{
+			client:  &http.Client{},
+			baseURL: server.URL,
+		}
+
+		_, err := client.GetRouters()
+		if err == nil {
+			t.Error("Expected error for non-200 status code, got nil")
+		}
+	})
+
+	// Test case 3: Invalid JSON response
+	t.Run("Invalid JSON response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			// Return invalid JSON
+			_, err := w.Write([]byte("{invalid json"))
+			if err != nil {
+				t.Fatalf("Failed to write response: %v", err)
+			}
+		}))
+		defer server.Close()
+
+		client := &TraefikClient{
+			client:  &http.Client{},
+			baseURL: server.URL,
+		}
+
+		_, err := client.GetRouters()
+		if err == nil {
+			t.Error("Expected error for invalid JSON, got nil")
+		}
+	})
+}
+
 func TestExtractHostname(t *testing.T) {
 	tests := []struct {
 		name     string

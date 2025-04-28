@@ -1,6 +1,6 @@
-displayName: UniFi DNS
+displayName: Traefik UniFi DNS
 type: middleware
-import: github.com/horknfbr/traefik-unifidns
+import: github.com/horknfbr/traefikunifidns
 summary: Automatically updates DNS records on UniFi Devices based on Traefik routers and domain patterns
 testData:
   devices:
