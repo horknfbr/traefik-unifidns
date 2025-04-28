@@ -96,7 +96,10 @@ func TestTraefikClientGetRoutersWithErrors(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			// Return invalid JSON
-			w.Write([]byte("{invalid json"))
+			_, err := w.Write([]byte("{invalid json"))
+			if err != nil {
+				t.Fatalf("Failed to write response: %v", err)
+			}
 		}))
 		defer server.Close()
 

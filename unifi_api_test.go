@@ -112,7 +112,10 @@ func TestUniFiClientLoginErrors(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			// Return invalid JSON
-			w.Write([]byte("{invalid json"))
+			_, err := w.Write([]byte("{invalid json"))
+			if err != nil {
+				t.Fatalf("Failed to write response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -230,7 +233,9 @@ func TestUniFiClientUpdateDNSRecordErrors(t *testing.T) {
 			} else {
 				// Return a success response for login
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]string{"token": "test-token"})
+				if err := json.NewEncoder(w).Encode(map[string]string{"token": "test-token"}); err != nil {
+					t.Fatalf("Failed to encode token response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()

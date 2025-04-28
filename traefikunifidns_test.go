@@ -154,12 +154,6 @@ func TestGetLocalIPExtended(t *testing.T) {
 	}
 }
 
-// Mocking net.InterfaceAddrs without directly overriding the function
-type mockAddrError struct{}
-
-func (m *mockAddrError) Network() string { return "ip+net" }
-func (m *mockAddrError) String() string  { return "<nil>" }
-
 func TestGetLocalIPNoAddresses(t *testing.T) {
 	// We can't easily mock net.InterfaceAddrs without compiler modification,
 	// so we'll test our understanding of the function logic instead
@@ -606,7 +600,9 @@ func TestUpdateLoopWithError(t *testing.T) {
 	time.Sleep(150 * time.Millisecond)
 
 	// Restore stdout
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("Failed to close pipe writer: %v", err)
+	}
 	os.Stdout = oldStdout
 
 	// Check if the error path was called
@@ -701,12 +697,16 @@ func TestUpdateDNSErrors(t *testing.T) {
 		}
 
 		// Restore stdout
-		w.Close()
+		if err := w.Close(); err != nil {
+			t.Fatalf("Failed to close pipe writer: %v", err)
+		}
 		os.Stdout = oldStdout
 
 		// Read the captured output
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		if _, err := io.Copy(&buf, r); err != nil {
+			t.Fatalf("Failed to read captured output: %v", err)
+		}
 
 		// Check output contains our messages
 		output := buf.String()
