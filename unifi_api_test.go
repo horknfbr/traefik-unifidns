@@ -71,6 +71,65 @@ func TestUniFiClientLogin(t *testing.T) {
 	}
 }
 
+func TestUniFiClientLoginErrors(t *testing.T) {
+	// Test case 1: HTTP request error
+	t.Run("HTTP request error", func(t *testing.T) {
+		client := &UniFiClient{
+			client:   &http.Client{},
+			baseURL:  "http://invalid-url-that-will-fail:12345", // Invalid URL to force error
+			username: "admin",
+			password: "password",
+		}
+
+		err := client.login()
+		if err == nil {
+			t.Error("Expected error for invalid URL, got nil")
+		}
+	})
+
+	// Test case 2: Non-200 status code
+	t.Run("Non-200 status code", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer server.Close()
+
+		client := &UniFiClient{
+			client:   &http.Client{},
+			baseURL:  server.URL,
+			username: "admin",
+			password: "password",
+		}
+
+		err := client.login()
+		if err == nil {
+			t.Error("Expected error for non-200 status code, got nil")
+		}
+	})
+
+	// Test case 3: Invalid JSON response
+	t.Run("Invalid JSON response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			// Return invalid JSON
+			w.Write([]byte("{invalid json"))
+		}))
+		defer server.Close()
+
+		client := &UniFiClient{
+			client:   &http.Client{},
+			baseURL:  server.URL,
+			username: "admin",
+			password: "password",
+		}
+
+		err := client.login()
+		if err == nil {
+			t.Error("Expected error for invalid JSON, got nil")
+		}
+	})
+}
+
 func TestUniFiClientUpdateDNSRecord(t *testing.T) {
 	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -124,4 +183,69 @@ func TestUniFiClientUpdateDNSRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("updateDNSRecord returned error: %v", err)
 	}
+}
+
+func TestUniFiClientUpdateDNSRecordErrors(t *testing.T) {
+	// Test case 1: Login failure
+	t.Run("Login failure", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer server.Close()
+
+		client := &UniFiClient{
+			client:   &http.Client{},
+			baseURL:  server.URL,
+			username: "admin",
+			password: "password",
+		}
+
+		err := client.updateDNSRecord("example.com", "192.168.1.100")
+		if err == nil {
+			t.Error("Expected error when login fails, got nil")
+		}
+	})
+
+	// Test case 2: HTTP request error with token
+	t.Run("HTTP request error with token", func(t *testing.T) {
+		client := &UniFiClient{
+			client:   &http.Client{},
+			baseURL:  "http://invalid-url-that-will-fail:12345", // Invalid URL to force error
+			username: "admin",
+			password: "password",
+			token:    "existing-token", // Already has a token
+		}
+
+		err := client.updateDNSRecord("example.com", "192.168.1.100")
+		if err == nil {
+			t.Error("Expected error for invalid URL, got nil")
+		}
+	})
+
+	// Test case 3: Non-200 status code when updating DNS
+	t.Run("Non-200 status code when updating DNS", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/s/default/rest/dnsrecord" {
+				w.WriteHeader(http.StatusBadRequest)
+			} else {
+				// Return a success response for login
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{"token": "test-token"})
+			}
+		}))
+		defer server.Close()
+
+		client := &UniFiClient{
+			client:   &http.Client{},
+			baseURL:  server.URL,
+			username: "admin",
+			password: "password",
+			token:    "test-token", // Already has a token
+		}
+
+		err := client.updateDNSRecord("example.com", "192.168.1.100")
+		if err == nil {
+			t.Error("Expected error for non-200 status code, got nil")
+		}
+	})
 }

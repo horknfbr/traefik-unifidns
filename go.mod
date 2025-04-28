@@ -1,3 +1,3 @@
-module github.com/horknfbr/traefik-unifidns
+module github.com/horknfbr/traefikunifidns
 
 go 1.21

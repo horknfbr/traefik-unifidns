@@ -1,6 +1,6 @@
 # Traefik UniFi DNS Plugin
 
-[![CI](https://github.com/horknfbr/trafik-unifidns/actions/workflows/testcover.yml/badge.svg)](https://github.com/horknfbr/trafik-unifidns/actions/workflows/testcover.yml) [![Go Linter](https://github.com/horknfbr/trafik-unifidns/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/horknfbr/trafik-unifidns/actions/workflows/golangci-lint.yml)
+[![CI](https://github.com/horknfbr/traefikunifidns/actions/workflows/testcover.yml/badge.svg)](https://github.com/horknfbr/traefikunifidns/actions/workflows/testcover.yml) [![Go Linter](https://github.com/horknfbr/traefikunifidns/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/horknfbr/traefikunifidns/actions/workflows/golangci-lint.yml)
 
 ![Traefik UniFi DNS Plugin](/.assets/icon.png)
 
@@ -21,8 +21,8 @@ This Traefik plugin automatically updates DNS records on UniFi devices based on 
 ```yaml
 experimental:
   plugins:
-    unifidns:
-      moduleName: github.com/horknfbr/traefik-unifidns
+    traefikunifidns:
+      moduleName: github.com/horknfbr/traefikunifidns
 ```
 
 ### Dynamic Configuration
