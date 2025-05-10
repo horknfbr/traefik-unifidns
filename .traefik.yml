@@ -1,16 +1,22 @@
 displayName: Traefik UniFi DNS
 type: middleware
+iconPath: .assets/icon.png
+
 import: github.com/horknfbr/traefikunifidns
-summary: Automatically updates DNS records on UniFi Devices based on Traefik routers and domain patterns
+
+summary: Automatically updates DNS records on UniFi Devices based on Traefik routers and domain patterns. Only updates records when IP addresses have changed to minimize API calls.
+
 testData:
   devices:
     - host: "192.168.1.1"
       username: "admin"
       password: "password"
       pattern: ".*\\.example\\.com"
+      insecureSkipVerify: true
     - host: "192.168.1.2"
       username: "admin"
-      password: "password"
+      password: "password2"
       pattern: ".*\\.domain\\.com"
   updateInterval: "5m"
   traefikApiUrl: "http://localhost:8080"
+  
