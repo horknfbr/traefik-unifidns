@@ -6,16 +6,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewUniFiClient(t *testing.T) {
-	client := NewUniFiClient("192.168.1.1", "admin", "password", false)
-	if client == nil {
-		t.Fatal("NewUniFiClient returned nil")
-	}
-	if client.baseURL != "https://192.168.1.1" {
-		t.Errorf("Expected baseURL to be 'https://192.168.1.1', got '%s'", client.baseURL)
-	}
+	client := NewUniFiClient("192.168.1.1", "admin", "password", true)
+	require.NotNil(t, client, "Client should not be nil")
+	require.Equal(t, "https://192.168.1.1", client.baseURL, "Base URL should match")
 	if client.username != "admin" {
 		t.Errorf("Expected username to be 'admin', got '%s'", client.username)
 	}
@@ -162,7 +160,9 @@ func TestGetStaticDNSEntries(t *testing.T) {
 				{Key: "example.com", Value: "192.168.1.100", ID: "1"},
 				{Key: "test.com", Value: "192.168.1.101", ID: "2"},
 			}
-			json.NewEncoder(w).Encode(entries)
+			if err := json.NewEncoder(w).Encode(entries); err != nil {
+				t.Errorf("Failed to encode entries: %v", err)
+			}
 			w.WriteHeader(http.StatusOK)
 		default:
 			t.Errorf("Unexpected path: %s", r.URL.Path)
@@ -277,14 +277,18 @@ func TestUniFiClientUpdateDNSRecord(t *testing.T) {
 			if r.Method == "GET" {
 				// For empty DNS entries test
 				if r.Header.Get("X-Test-Empty-DNS") == "true" {
-					json.NewEncoder(w).Encode([]DNSEntry{})
+					if err := json.NewEncoder(w).Encode([]DNSEntry{}); err != nil {
+						t.Errorf("Failed to encode empty entries: %v", err)
+					}
 					w.WriteHeader(http.StatusOK)
 					return
 				}
 
 				// For invalid JSON response test
 				if r.Header.Get("X-Test-Invalid-JSON") == "true" {
-					w.Write([]byte("invalid json"))
+					if _, err := w.Write([]byte("invalid json")); err != nil {
+						t.Errorf("Failed to write response: %v", err)
+					}
 					w.WriteHeader(http.StatusOK)
 					return
 				}
@@ -293,7 +297,9 @@ func TestUniFiClientUpdateDNSRecord(t *testing.T) {
 					{Key: "example.com", Value: "192.168.1.100", ID: "1"},
 					{Key: "test.com", Value: "192.168.1.101", ID: "2"},
 				}
-				json.NewEncoder(w).Encode(entries)
+				if err := json.NewEncoder(w).Encode(entries); err != nil {
+					t.Errorf("Failed to encode entries: %v", err)
+				}
 				w.WriteHeader(http.StatusOK)
 				return
 			}
@@ -479,7 +485,9 @@ func TestUniFiClientUpdateDNSRecordErrors(t *testing.T) {
 					{Key: "example.com", Value: "192.168.1.100", ID: "1"},
 					{Key: "test.com", Value: "192.168.1.101", ID: "2"},
 				}
-				json.NewEncoder(w).Encode(entries)
+				if err := json.NewEncoder(w).Encode(entries); err != nil {
+					t.Errorf("Failed to encode entries: %v", err)
+				}
 				w.WriteHeader(http.StatusOK)
 				return
 			}

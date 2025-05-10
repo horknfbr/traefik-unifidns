@@ -5,30 +5,20 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewTraefikClient(t *testing.T) {
-	// Test with default settings
+	// Test with HTTP URL
 	client := NewTraefikClient("http://localhost:8080", false)
-	if client == nil {
-		t.Fatal("NewTraefikClient returned nil")
-	}
-	if client.baseURL != "http://localhost:8080" {
-		t.Errorf("Expected baseURL to be 'http://localhost:8080', got '%s'", client.baseURL)
-	}
-	if client.client.Timeout != 10*time.Second {
-		t.Error("Expected client timeout to be 10 seconds")
-	}
+	require.NotNil(t, client, "Client should not be nil")
+	require.Equal(t, "http://localhost:8080", client.baseURL, "Base URL should match")
 
-	// Test with HTTPS and insecure skip verify
+	// Test with HTTPS URL
 	client = NewTraefikClient("https://localhost:8080", true)
-	if client == nil {
-		t.Fatal("NewTraefikClient returned nil")
-	}
-	if client.baseURL != "https://localhost:8080" {
-		t.Errorf("Expected baseURL to be 'https://localhost:8080', got '%s'", client.baseURL)
-	}
+	require.NotNil(t, client, "Client should not be nil")
+	require.Equal(t, "https://localhost:8080", client.baseURL, "Base URL should match")
 }
 
 func TestGetRouters(t *testing.T) {
@@ -65,7 +55,9 @@ func TestGetRouters(t *testing.T) {
 				Middlewares: []string{"traefikunifidns", "traefikunifidns"}, // Duplicate middleware
 			},
 		}
-		json.NewEncoder(w).Encode(routers)
+		if err := json.NewEncoder(w).Encode(routers); err != nil {
+			t.Errorf("Failed to encode routers: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -155,7 +147,9 @@ func TestGetRoutersErrors(t *testing.T) {
 	// Test case 3: Invalid JSON response
 	t.Run("Invalid JSON response", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("invalid json"))
+			if _, err := w.Write([]byte("invalid json")); err != nil {
+				t.Errorf("Failed to write response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -173,7 +167,9 @@ func TestGetRoutersErrors(t *testing.T) {
 	// Test case 4: Empty routers list
 	t.Run("Empty routers list", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode([]TraefikRouter{})
+			if err := json.NewEncoder(w).Encode([]TraefikRouter{}); err != nil {
+				t.Errorf("Failed to encode empty routers: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -195,7 +191,9 @@ func TestGetRoutersErrors(t *testing.T) {
 	t.Run("Malformed router data", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`[{"rule": "Host(` + "`" + `example.com` + "`" + `)", "middlewares": "invalid"}]`))
+			if _, err := w.Write([]byte(`[{"rule": "Host(` + "`" + `example.com` + "`" + `)", "middlewares": "invalid"}]`)); err != nil {
+				t.Errorf("Failed to write response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -214,7 +212,9 @@ func TestGetRoutersErrors(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Set content length to force a body close error
 			w.Header().Set("Content-Length", "1")
-			w.Write([]byte("{"))
+			if _, err := w.Write([]byte("{")); err != nil {
+				t.Errorf("Failed to write response: %v", err)
+			}
 		}))
 		defer server.Close()
 

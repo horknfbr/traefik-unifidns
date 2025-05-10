@@ -106,7 +106,9 @@ func TestUpdateDNS(t *testing.T) {
 					"middlewares": []string{"traefikunifidns"},
 				},
 			}
-			json.NewEncoder(w).Encode(routers)
+			if err := json.NewEncoder(w).Encode(routers); err != nil {
+				t.Errorf("Failed to encode routers: %v", err)
+			}
 		}
 	}))
 	defer traefikServer.Close()
@@ -118,7 +120,9 @@ func TestUpdateDNS(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/proxy/network/v2/api/site/default/static-dns":
 			if r.Method == "GET" {
-				json.NewEncoder(w).Encode([]DNSEntry{})
+				if err := json.NewEncoder(w).Encode([]DNSEntry{}); err != nil {
+					t.Errorf("Failed to encode DNS entries: %v", err)
+				}
 			} else {
 				w.WriteHeader(http.StatusOK)
 			}

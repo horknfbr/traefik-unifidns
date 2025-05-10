@@ -88,7 +88,11 @@ func (c *UniFiClient) login() error {
 		log.Printf("ERROR: Failed to send login request: %v", err)
 		return fmt.Errorf("failed to send login request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("ERROR: Failed to close response body: %v", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("ERROR: Login failed with status code: %d", resp.StatusCode)
@@ -132,7 +136,11 @@ func (c *UniFiClient) GetStaticDNSEntries() ([]DNSEntry, error) {
 		log.Printf("ERROR: Failed to send DNS entries request: %v", err)
 		return nil, fmt.Errorf("failed to send DNS entries request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("ERROR: Failed to close response body: %v", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("ERROR: Failed to get DNS entries with status code: %d", resp.StatusCode)
@@ -237,11 +245,7 @@ func (c *UniFiClient) updateDNSRecord(hostname, ip string) error {
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			// If we already have an error, don't override it
-			if err == nil {
-				log.Printf("ERROR: Failed to close response body: %v", closeErr)
-				err = fmt.Errorf("failed to close response body: %w", closeErr)
-			}
+			log.Printf("ERROR: Failed to close response body: %v", closeErr)
 		}
 	}()
 
